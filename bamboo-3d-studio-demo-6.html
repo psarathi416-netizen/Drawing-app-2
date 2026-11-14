@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Bamboo 3D Studio</title>
+<style>
+:root{--bg:#0b1020;--panel:#141c30;--panel2:#1b2740;--text:#f4f7ff;--muted:#9eacc8;--accent:#7c5cff;--line:#2a3855}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
+header{height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:#10172a;border-bottom:1px solid var(--line)}
+.brand{font-weight:800;font-size:17px;letter-spacing:.2px}.brand span{color:#a99aff}.sub{color:var(--muted);font-size:11px}
+button,select{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:9px 11px;font:inherit;cursor:pointer}
+button:hover{border-color:#8d7bff}button.primary{background:var(--accent);border-color:var(--accent);font-weight:700}
+.layout{height:calc(100vh - 58px);display:grid;grid-template-columns:210px 1fr 235px}
+aside{background:var(--panel);padding:14px;overflow:auto;border-right:1px solid var(--line)}aside.right{border-right:0;border-left:1px solid var(--line)}
+h3{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:5px 0 12px}
+.group{border-bottom:1px solid var(--line);padding-bottom:15px;margin-bottom:15px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.objbtn{padding:12px 6px;display:flex;flex-direction:column;align-items:center;gap:5px}.ico{font-size:23px}
+label{display:block;color:var(--muted);font-size:12px;margin:12px 0 6px}
+input[type=range]{width:100%;accent-color:var(--accent)}input[type=color]{width:100%;height:38px;border:0;background:none}
+.stage{position:relative;min-width:0;min-height:0;background:radial-gradient(ellipse at center,#1c2942 0%,#0b1020 72%);overflow:hidden}
+#view{width:100%;height:100%;display:block;touch-action:none}
+.hint{position:absolute;left:14px;bottom:14px;background:#0b1020c9;border:1px solid var(--line);padding:9px 12px;border-radius:10px;color:var(--muted);font-size:12px;pointer-events:none}
+.toolbar{position:absolute;top:12px;left:50%;transform:translateX(-50%);display:flex;gap:7px;flex-wrap:wrap;justify-content:center;width:95%;pointer-events:none}.toolbar button{pointer-events:auto;background:#111a2ee8}
+.status{font-size:12px;color:var(--muted);line-height:1.5}.layer{display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;margin:7px 0}
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#f4f7ff;color:#111827;padding:10px 14px;border-radius:9px;display:none;z-index:10}
+@media(max-width:760px){.layout{grid-template-columns:145px 1fr;height:calc(100vh - 58px)}aside.left{padding:9px}.right{display:none}.grid2{grid-template-columns:1fr 1fr}.objbtn{font-size:12px;padding:9px 3px}.toolbar{top:7px}.toolbar button{padding:7px;font-size:12px}.brand{font-size:15px}.sub{display:none}}
+</style>
+</head>
+<body>
+<header><div><div class="brand">🎋 Bamboo <span>3D Studio</span></div><div class="sub">A lightweight 3D scene playground</div></div><button id="exportBtn" class="primary">Export Scene</button></header>
+<div class="layout">
+<aside class="left">
+ <div class="group"><h3>Add object</h3><div class="grid2">
+ <button class="objbtn" data-shape="box"><span class="ico">🧊</span>Cube</button>
+ <button class="objbtn" data-shape="sphere"><span class="ico">⚪</span>Sphere</button>
+ <button class="objbtn" data-shape="cylinder"><span class="ico">🥫</span>Cylinder</button>
+ <button class="objbtn" data-shape="cone"><span class="ico">🔺</span>Cone</button>
+ </div></div>
+ <div class="group"><h3>View</h3><button id="gridBtn" style="width:100%;margin-bottom:7px">Toggle Grid</button><button id="wireBtn" style="width:100%">Toggle Wireframe</button></div>
+ <div class="group"><h3>Scene</h3><button id="resetBtn" style="width:100%">Reset Scene</button><p class="status">Drag to orbit · scroll or pinch to zoom · tap an object to select it.</p></div>
+</aside>
+<main class="stage"><canvas id="view"></canvas><div class="toolbar"><button id="leftBtn">◀ Rotate</button><button id="rightBtn">Rotate ▶</button><button id="zoomIn">＋ Zoom</button><button id="zoomOut">－ Zoom</button></div><div class="hint">Drag to rotate • Tap object to select</div></main>
+<aside class="right">
+ <div class="group"><h3>Selected object</h3><div id="selectedName" class="status">Nothing selected</div>
+ <label for="colorPicker">Object color</label><input id="colorPicker" type="color" value="#7c5cff">
+ <label for="sizeRange">Scale <span id="sizeValue">1.0×</span></label><input id="sizeRange" type="range" min=".3" max="2.5" step=".1" value="1">
+ <button id="deleteBtn" style="width:100%;margin-top:12px">Delete selected</button></div>
+ <div class="group"><h3>Objects</h3><div id="objectList" class="status">No objects yet</div></div>
+ <div class="group"><h3>About</h3><p class="status">This is a single-file demo, not a full professional 3D editor. It uses Three.js from a CDN, so internet access is required.</p></div>
+</aside>
+</div><div id="toast"></div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+const canvas=document.querySelector('#view');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+renderer.setSize(canvas.clientWidth,canvas.clientHeight,false);
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+const scene=new THREE.Scene();
+scene.background=null;
+const camera=new THREE.PerspectiveCamera(45,1,.1,1000);
+let radius=8,theta=Math.PI/4,phi=Math.PI/3;
+function updateCamera(){phi=Math.max(.12,Math.min(Math.PI-.12,phi));camera.position.set(radius*Math.sin(phi)*Math.sin(theta),radius*Math.cos(phi),radius*Math.sin(phi)*Math.cos(theta));camera.lookAt(0,0,0)}
+updateCamera();
+scene.add(new THREE.HemisphereLight(0xc7d8ff,0x283047,2));
+const key=new THREE.DirectionalLight(0xffffff,3);key.position.set(5,8,6);key.castShadow=true;scene.add(key);
+const fill=new THREE.DirectionalLight(0x8c79ff,1.3);fill.position.set(-5,3,-4);scene.add(fill);
+const grid=new THREE.GridHelper(20,20,0x59698a,0x293754);grid.position.y=-1.35;scene.add(grid);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.ShadowMaterial({opacity:.18}));floor.rotation.x=-Math.PI/2;floor.position.y=-1.36;floor.receiveShadow=true;scene.add(floor);
+const objects=[];let selected=null,wire=false,dragging=false,lastX=0,lastY=0,moved=false;
+const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
+function geometryFor(type){if(type==='sphere')return new THREE.SphereGeometry(.85,40,28);if(type==='cylinder')return new THREE.CylinderGeometry(.65,.65,1.5,40);if(type==='cone')return new THREE.ConeGeometry(.8,1.6,40);return new THREE.BoxGeometry(1.4,1.4,1.4)}
+function addObject(type){const mesh=new THREE.Mesh(geometryFor(type),new THREE.MeshStandardMaterial({color:document.querySelector('#colorPicker').value,roughness:.35,metalness:.12,wireframe:wire}));mesh.castShadow=true;mesh.receiveShadow=true;mesh.position.set((Math.random()-.5)*1.4,0,(Math.random()-.5)*1.4);mesh.userData.label=type[0].toUpperCase()+type.slice(1);scene.add(mesh);objects.push(mesh);select(mesh);refreshList();toast(mesh.userData.label+' added')}
+function select(mesh){if(selected){selected.material.emissive?.setHex(0x000000)}selected=mesh;if(selected){selected.material.emissive?.setHex(0x17102b);document.querySelector('#selectedName').textContent=selected.userData.label;document.querySelector('#colorPicker').value='#'+selected.material.color.getHexString();document.querySelector('#sizeRange').value=selected.scale.x;document.querySelector('#sizeValue').textContent=selected.scale.x.toFixed(1)+'×'}else document.querySelector('#selectedName').textContent='Nothing selected';refreshList()}
+function refreshList(){const list=document.querySelector('#objectList');list.innerHTML='';if(!objects.length){list.textContent='No objects yet';return}objects.forEach((o,i)=>{const b=document.createElement('button');b.className='layer';b.style.width='100%';b.innerHTML='<span>'+(i+1)+'. '+o.userData.label+'</span><span>'+(o===selected?'●':'○')+'</span>';b.onclick=()=>select(o);list.appendChild(b)})}
+function toast(msg){const t=document.querySelector('#toast');t.textContent=msg;t.style.display='block';clearTimeout(window._toastTimer);window._toastTimer=setTimeout(()=>t.style.display='none',1900)}
+document.querySelectorAll('[data-shape]').forEach(b=>b.onclick=()=>addObject(b.dataset.shape));
+document.querySelector('#colorPicker').oninput=e=>{if(selected)selected.material.color.set(e.target.value)};
+document.querySelector('#sizeRange').oninput=e=>{if(selected){const s=Number(e.target.value);selected.scale.setScalar(s);document.querySelector('#sizeValue').textContent=s.toFixed(1)+'×'}};
+document.querySelector('#deleteBtn').onclick=()=>{if(!selected)return toast('Select an object first');scene.remove(selected);const i=objects.indexOf(selected);if(i>=0)objects.splice(i,1);selected=null;select(null);refreshList();toast('Object deleted')};
+document.querySelector('#gridBtn').onclick=()=>{grid.visible=!grid.visible;toast('Grid '+(grid.visible?'on':'off'))};
+document.querySelector('#wireBtn').onclick=()=>{wire=!wire;objects.forEach(o=>o.material.wireframe=wire);toast('Wireframe '+(wire?'on':'off'))};
+document.querySelector('#resetBtn').onclick=()=>{objects.forEach(o=>scene.remove(o));objects.length=0;select(null);refreshList();toast('Scene reset')};
+document.querySelector('#leftBtn').onclick=()=>{theta-=.25;updateCamera()};
+document.querySelector('#rightBtn').onclick=()=>{theta+=.25;updateCamera()};
+document.querySelector('#zoomIn').onclick=()=>{radius=Math.max(2.5,radius-.7);updateCamera()};
+document.querySelector('#zoomOut').onclick=()=>{radius=Math.min(20,radius+.7);updateCamera()};
+document.querySelector('#exportBtn').onclick=()=>{const data={app:'Bamboo 3D Studio Demo',version:1,objects:objects.map(o=>({type:o.userData.label,color:'#'+o.material.color.getHexString(),position:o.position.toArray(),scale:o.scale.toArray(),rotation:[o.rotation.x,o.rotation.y,o.rotation.z]}))};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bamboo-scene.json';a.click();URL.revokeObjectURL(a.href);toast('Scene JSON exported')};
+canvas.addEventListener('pointerdown',e=>{dragging=true;moved=false;lastX=e.clientX;lastY=e.clientY;canvas.setPointerCapture(e.pointerId)});
+canvas.addEventListener('pointermove',e=>{if(!dragging)return;const dx=e.clientX-lastX,dy=e.clientY-lastY;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;if(moved){theta-=dx*.008;phi-=dy*.008;updateCamera()}lastX=e.clientX;lastY=e.clientY});
+canvas.addEventListener('pointerup',e=>{dragging=false;if(!moved){const r=canvas.getBoundingClientRect();pointer.x=((e.clientX-r.left)/r.width)*2-1;pointer.y=-((e.clientY-r.top)/r.height)*2+1;raycaster.setFromCamera(pointer,camera);const hits=raycaster.intersectObjects(objects);if(hits.length)select(hits[0].object);else select(null)}});
+canvas.addEventListener('wheel',e=>{e.preventDefault();radius=Math.max(2.5,Math.min(20,radius+e.deltaY*.008));updateCamera()},{passive:false});
+let touchDist=0;canvas.addEventListener('touchstart',e=>{if(e.touches.length===2)touchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY)},{passive:true});
+canvas.addEventListener('touchmove',e=>{if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);radius=Math.max(2.5,Math.min(20,radius+(touchDist-d)*.015));touchDist=d;updateCamera()}},{passive:true});
+function resize(){const w=canvas.clientWidth,h=canvas.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
+window.addEventListener('resize',resize);
+function animate(){requestAnimationFrame(animate);renderer.render(scene,camera)}animate();
+</script>
+</body></html>
